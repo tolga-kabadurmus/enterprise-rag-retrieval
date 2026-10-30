@@ -46,6 +46,8 @@ class EmbeddingServiceRepositoryTests(unittest.IsolatedAsyncioTestCase):
                     "dimension": 2,
                     "normalized": True,
                     "embeddings": [[0.6, 0.8]],
+                    "sparse_model": "multilingual-e5-token-frequency-v1",
+                    "sparse_embeddings": [{"indices": [11, 29], "values": [1.0, 2.0]}],
                 },
             )
 
@@ -60,7 +62,8 @@ class EmbeddingServiceRepositoryTests(unittest.IsolatedAsyncioTestCase):
 
         vectors = await repository.embed(("question",), input_type="query")
 
-        self.assertEqual(vectors, ((0.6, 0.8),))
+        self.assertEqual(vectors[0].dense, (0.6, 0.8))
+        self.assertEqual(vectors[0].sparse.indices, (11, 29))
         self.assertEqual(requests[0].url.path, "/v1/embeddings")
         self.assertEqual(json.loads(requests[0].content), {
             "input_type": "query",
@@ -80,6 +83,8 @@ class EmbeddingServiceRepositoryTests(unittest.IsolatedAsyncioTestCase):
                         "dimension": 3,
                         "normalized": True,
                         "embeddings": [[0.1, 0.2, 0.3]],
+                        "sparse_model": "multilingual-e5-token-frequency-v1",
+                        "sparse_embeddings": [{"indices": [11], "values": [1.0]}],
                     },
                 )
             ),

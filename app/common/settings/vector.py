@@ -28,5 +28,6 @@ class VectorSettings(BaseSettings):
     api_key: SecretStr | None = None
     collection_name: str = Field(min_length=1)
     dense_vector_name: str = Field(default="dense", min_length=1)
+    sparse_vector_name: str = Field(default="sparse", min_length=1)
     vector_size: int = Field(default=384, ge=1)
     timeout_seconds: int = Field(default=10, ge=1, le=120)

@@ -5,12 +5,11 @@ from pydantic import ValidationError
 from app.common.settings.retrieval import RetrievalSettings
 from app.domain import RetrievedChunk, SourceReference
 from app.repository.vector import VectorRepositoryBase, VectorSearchResult
+from app.repository.embedding_service.base import EmbeddingVector
 from app.usecase.base import UseCase
 
 
-class RetrieveChunksUseCase(
-    UseCase[tuple[float, ...], tuple[RetrievedChunk, ...]]
-):
+class RetrieveChunksUseCase(UseCase[EmbeddingVector, tuple[RetrievedChunk, ...]]):
     """Retrieve relevant vectors and map their payloads into domain chunks."""
 
     def __init__(
@@ -23,15 +22,14 @@ class RetrieveChunksUseCase(
 
     async def execute(
         self,
-        value: tuple[float, ...],
+        value: EmbeddingVector,
     ) -> tuple[RetrievedChunk, ...]:
         """Search with configured limits and return validated retrieved chunks."""
 
-        if not value:
-            raise ValueError("query vector must not be empty")
         results = await self._repo.search(
             query_vector=value,
-            limit=self._settings.top_k,
+            limit=self._settings.candidate_k,
+            prefetch_limit=self._settings.hybrid_prefetch_limit,
             score_threshold=self._settings.score_threshold,
         )
         return tuple(self._to_chunk(result) for result in results)

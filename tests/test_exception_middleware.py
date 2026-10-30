@@ -9,6 +9,7 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 
 from app.middleware import UnhandledExceptionMiddleware
 from app.repository.embedding_service.exceptions import EmbeddingServiceRequestError
+from app.repository.reranking.exceptions import RerankingError
 
 
 class ExceptionMiddlewareTests(unittest.IsolatedAsyncioTestCase):
@@ -52,6 +53,12 @@ class ExceptionMiddlewareTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(response.status_code, 503)
         self.assertEqual(response.json(), {"detail": "vector retrieval is unavailable"})
+
+    async def test_maps_reranking_failure_to_service_unavailable(self) -> None:
+        response = await self._request_for(RerankingError("private model detail"))
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"detail": "reranking is unavailable"})
 
     async def test_maps_llm_rate_limit(self) -> None:
         response = await self._request_for(

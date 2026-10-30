@@ -4,14 +4,19 @@ import unittest
 
 from app.controller import RetrievalController
 from app.domain import RetrievedChunk, SourceReference, UserQuestion
+from app.repository.embedding_service import EmbeddingVector, SparseEmbedding
+from app.usecase import RerankChunksInput
 
 
 class FakeQueryEmbeddingUseCase:
     """Return a fixed query vector."""
 
-    async def execute(self, question: str) -> tuple[float, ...]:
+    async def execute(self, question: str) -> EmbeddingVector:
         self.question = question
-        return (0.1, 0.2)
+        return EmbeddingVector(
+            dense=(0.1, 0.2),
+            sparse=SparseEmbedding(indices=(5,), values=(1.0,)),
+        )
 
 
 class FakeRetrieveChunksUseCase:
@@ -19,7 +24,7 @@ class FakeRetrieveChunksUseCase:
 
     async def execute(
         self,
-        vector: tuple[float, ...],
+        vector: EmbeddingVector,
     ) -> tuple[RetrievedChunk, ...]:
         self.vector = vector
         return (
@@ -37,16 +42,29 @@ class FakeRetrieveChunksUseCase:
         )
 
 
+class FakeRerankChunksUseCase:
+    """Return candidates after recording the reranking input."""
+
+    async def execute(
+        self,
+        value: RerankChunksInput,
+    ) -> tuple[RetrievedChunk, ...]:
+        self.value = value
+        return value.chunks
+
+
 class RetrievalControllerTests(unittest.IsolatedAsyncioTestCase):
     """Verify embedding happens before vector retrieval."""
 
     async def test_coordinates_embedding_and_retrieval(self) -> None:
         embedding = FakeQueryEmbeddingUseCase()
         retrieval = FakeRetrieveChunksUseCase()
-        controller = RetrievalController(embedding, retrieval)
+        reranking = FakeRerankChunksUseCase()
+        controller = RetrievalController(embedding, retrieval, reranking)
 
         chunks = await controller.execute(UserQuestion(question="Leave policy?"))
 
         self.assertEqual(embedding.question, "Leave policy?")
-        self.assertEqual(retrieval.vector, (0.1, 0.2))
+        self.assertEqual(retrieval.vector.dense, (0.1, 0.2))
+        self.assertEqual(reranking.value.question, "Leave policy?")
         self.assertEqual(chunks[0].source.object_key, "handbook.pdf")

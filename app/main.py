@@ -1,5 +1,6 @@
 """FastAPI application entry point and dependency composition."""
 
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -8,6 +9,7 @@ import httpx2
 from anthropic import AsyncAnthropic
 from cohere import AsyncClientV2
 from fastapi import FastAPI
+from flashrank import Ranker
 from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 from qdrant_client import AsyncQdrantClient
 
@@ -25,6 +27,10 @@ from app.repository.llm import (
     LLMRepositoryFactory,
     OpenAILLMRepository,
 )
+from app.repository.reranking import (
+    FlashRankRerankingRepository,
+    RerankingRepositoryFactory,
+)
 from app.repository.vector import (
     QdrantVectorRepository,
     VectorRepositoryFactory,
@@ -32,6 +38,7 @@ from app.repository.vector import (
 from app.usecase import (
     GenerateAnswerUseCase,
     QueryEmbeddingUseCase,
+    RerankChunksUseCase,
     RetrieveChunksUseCase,
 )
 
@@ -60,6 +67,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     llm_http_client = None
     llm_client = None
     llm_repository = None
+    reranking_repository = None
     try:
         embedding_factory = EmbeddingRepositoryFactory()
         embedding_factory.register(
@@ -92,6 +100,24 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             vector_settings.provider,
             vector_client,
             vector_settings,
+        )
+
+        reranking_settings = settings.reranking
+        ranker = await asyncio.to_thread(
+            Ranker,
+            model_name=reranking_settings.model_name,
+            cache_dir=reranking_settings.cache_dir,
+            max_length=reranking_settings.max_length,
+        )
+        reranking_factory = RerankingRepositoryFactory()
+        reranking_factory.register(
+            reranking_settings.provider,
+            FlashRankRerankingRepository,
+        )
+        reranking_repository = reranking_factory.create(
+            reranking_settings.provider,
+            ranker,
+            reranking_settings,
         )
 
         llm_settings = settings.llm
@@ -177,9 +203,16 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             settings=settings.retrieval,
         )
         application.state.retrieve_chunks_usecase = retrieve_chunks_usecase
+        application.state.reranking_repository = reranking_repository
+        rerank_chunks_usecase = RerankChunksUseCase(
+            repo=reranking_repository,
+            top_k=settings.retrieval.top_k,
+        )
+        application.state.rerank_chunks_usecase = rerank_chunks_usecase
         application.state.retrieval_controller = RetrievalController(
             query_embedding_usecase=query_embedding_usecase,
             retrieve_chunks_usecase=retrieve_chunks_usecase,
+            rerank_chunks_usecase=rerank_chunks_usecase,
         )
         application.state.llm_http_client = llm_http_client
         application.state.llm_client = llm_client
@@ -189,6 +222,8 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         )
         yield
     finally:
+        if reranking_repository is not None:
+            await reranking_repository.close()
         if llm_repository is not None:
             await llm_repository.close()
         elif llm_client is not None and hasattr(llm_client, "close"):

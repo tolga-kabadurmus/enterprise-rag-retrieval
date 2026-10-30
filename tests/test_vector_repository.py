@@ -10,6 +10,7 @@ from app.repository.vector import (
     QdrantVectorRepository,
     VectorRepositoryFactory,
 )
+from app.repository.embedding_service import EmbeddingVector, SparseEmbedding
 
 
 class FakeQdrantClient:
@@ -49,13 +50,27 @@ class VectorRepositoryTests(unittest.IsolatedAsyncioTestCase):
         )
         repository = QdrantVectorRepository(client, settings)
 
-        results = await repository.search((0.6, 0.8), limit=3, score_threshold=0.5)
+        query_vector = EmbeddingVector(
+            dense=(0.6, 0.8),
+            sparse=SparseEmbedding(indices=(11, 29), values=(1.0, 2.0)),
+        )
+        results = await repository.search(
+            query_vector,
+            limit=3,
+            prefetch_limit=12,
+            score_threshold=0.5,
+        )
 
         self.assertEqual(results[0].point_id, "7")
         self.assertEqual(results[0].payload["document_id"], "doc-1")
         self.assertEqual(client.kwargs["collection_name"], "chunks")
-        self.assertEqual(client.kwargs["using"], "dense")
-        self.assertEqual(client.kwargs["query"], [0.6, 0.8])
+        prefetch = client.kwargs["prefetch"]
+        self.assertEqual(prefetch[0].using, "dense")
+        self.assertEqual(prefetch[0].query, [0.6, 0.8])
+        self.assertEqual(prefetch[0].limit, 12)
+        self.assertEqual(prefetch[1].using, "sparse")
+        self.assertEqual(prefetch[1].query.indices, [11, 29])
+        self.assertEqual(client.kwargs["query"], models.FusionQuery(fusion=models.Fusion.RRF))
         await repository.close()
         self.assertTrue(client.closed)
 
@@ -70,7 +85,14 @@ class VectorRepositoryTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with self.assertRaisesRegex(ValueError, "dimension"):
-            await repository.search((0.1,), limit=1)
+            await repository.search(
+                EmbeddingVector(
+                    dense=(0.1,),
+                    sparse=SparseEmbedding(indices=(1,), values=(1.0,)),
+                ),
+                limit=1,
+                prefetch_limit=4,
+            )
 
     async def test_factory_creates_registered_qdrant_repository(self) -> None:
         factory = VectorRepositoryFactory()

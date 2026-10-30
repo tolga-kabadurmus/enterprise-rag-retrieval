@@ -41,6 +41,10 @@ class EmbeddingServiceSettings(BaseSettings):
     expected_revision: str = Field(default="main", min_length=1)
     expected_dimension: int = Field(default=384, ge=1)
     expected_normalized: bool = True
+    expected_sparse_model: str = Field(
+        default="multilingual-e5-token-frequency-v1",
+        min_length=1,
+    )
 
     @field_validator("url")
     @classmethod

@@ -10,7 +10,7 @@ from app.main import app, create_app
 from app.controller import RetrievalController
 from app.repository.llm import AnthropicLLMRepository, CohereLLMRepository
 from app.usecase import QueryEmbeddingUseCase, RetrieveChunksUseCase
-from app.usecase import GenerateAnswerUseCase
+from app.usecase import GenerateAnswerUseCase, RerankChunksUseCase
 
 
 VALID_ENV = {
@@ -32,6 +32,16 @@ class FakeQdrantClient:
 
     async def close(self) -> None:
         self.closed = True
+
+
+class FakeRanker:
+    """Avoid model downloads while testing application composition."""
+
+    def __init__(self, **kwargs: object) -> None:
+        self.kwargs = kwargs
+
+    def rerank(self, request: object) -> list[dict[str, object]]:
+        return []
 
 
 class ApplicationScaffoldTests(unittest.TestCase):
@@ -63,6 +73,7 @@ class ApplicationLifespanTests(unittest.IsolatedAsyncioTestCase):
         with (
             patch.dict(os.environ, VALID_ENV, clear=True),
             patch("app.main.AsyncQdrantClient", FakeQdrantClient),
+            patch("app.main.Ranker", FakeRanker),
         ):
             async with application.router.lifespan_context(application):
                 usecase = application.state.query_embedding_usecase
@@ -82,6 +93,10 @@ class ApplicationLifespanTests(unittest.IsolatedAsyncioTestCase):
                     application.state.retrieval_controller,
                     RetrievalController,
                 )
+                self.assertIsInstance(
+                    application.state.rerank_chunks_usecase,
+                    RerankChunksUseCase,
+                )
                 llm_repository = application.state.llm_repository
                 llm_http_client = application.state.llm_http_client
                 self.assertIs(
@@ -96,6 +111,7 @@ class ApplicationLifespanTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(repository._httpx_client.is_closed)
         self.assertTrue(vector_repository._closed)
+        self.assertTrue(application.state.reranking_repository._closed)
         self.assertTrue(llm_repository._closed)
         self.assertTrue(llm_http_client.is_closed)
 
@@ -115,6 +131,7 @@ class ApplicationLifespanTests(unittest.IsolatedAsyncioTestCase):
                 with (
                     patch.dict(os.environ, environment, clear=True),
                     patch("app.main.AsyncQdrantClient", FakeQdrantClient),
+                    patch("app.main.Ranker", FakeRanker),
                 ):
                     async with application.router.lifespan_context(application):
                         repository = application.state.llm_repository

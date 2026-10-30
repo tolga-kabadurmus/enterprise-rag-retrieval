@@ -12,6 +12,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 from app.repository.embedding_service.exceptions import EmbeddingServiceRequestError
+from app.repository.reranking.exceptions import RerankingError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -60,6 +61,8 @@ class UnhandledExceptionMiddleware(BaseHTTPMiddleware):
 
         if isinstance(error, (UnexpectedResponse, ResponseHandlingException)):
             return status.HTTP_503_SERVICE_UNAVAILABLE, "vector retrieval is unavailable"
+        if isinstance(error, RerankingError):
+            return status.HTTP_503_SERVICE_UNAVAILABLE, "reranking is unavailable"
 
         if isinstance(
             error,

@@ -49,9 +49,9 @@ async def create_query_embedding(
     return QueryEmbeddingResponse(
         model=settings.expected_model,
         revision=settings.expected_revision,
-        dimension=len(vector),
+        dimension=len(vector.dense),
         normalized=settings.expected_normalized,
-        embeddings=(vector,),
+        embeddings=(vector.dense,),
     )
 
 

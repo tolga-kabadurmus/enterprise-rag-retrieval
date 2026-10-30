@@ -5,6 +5,7 @@ from abc import abstractmethod
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.repository.base import Repository
+from app.repository.embedding_service.base import EmbeddingVector
 
 
 class VectorSearchResult(BaseModel):
@@ -23,8 +24,9 @@ class VectorRepositoryBase(Repository):
     @abstractmethod
     async def search(
         self,
-        query_vector: tuple[float, ...],
+        query_vector: EmbeddingVector,
         limit: int,
+        prefetch_limit: int,
         score_threshold: float | None = None,
     ) -> tuple[VectorSearchResult, ...]:
-        """Return the best dense-vector matches in descending relevance order."""
+        """Return reciprocal-rank-fused dense and sparse matches."""

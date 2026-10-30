@@ -1,6 +1,10 @@
 """Embedding repository contract, factory, and HTTP implementation."""
 
-from app.repository.embedding_service.base import EmbeddingRepository
+from app.repository.embedding_service.base import (
+    EmbeddingRepository,
+    EmbeddingVector,
+    SparseEmbedding,
+)
 from app.repository.embedding_service.enterprise_embedding_service_repository import (
     EmbeddingRequest,
     EmbeddingResponse,
@@ -11,9 +15,11 @@ from app.repository.embedding_service.factory import EmbeddingRepositoryFactory
 
 __all__ = [
     "EmbeddingRepository",
+    "EmbeddingVector",
     "EmbeddingRepositoryFactory",
     "EmbeddingRequest",
     "EmbeddingResponse",
     "EmbeddingServiceRequestError",
     "EnterpriseEmbeddingServiceRepository",
+    "SparseEmbedding",
 ]

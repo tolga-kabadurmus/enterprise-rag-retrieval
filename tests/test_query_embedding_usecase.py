@@ -3,7 +3,11 @@
 import unittest
 from typing import Literal
 
-from app.repository.embedding_service.base import EmbeddingRepository
+from app.repository.embedding_service.base import (
+    EmbeddingRepository,
+    EmbeddingVector,
+    SparseEmbedding,
+)
 from app.usecase.query_embedding import QueryEmbeddingUseCase
 
 
@@ -25,9 +29,14 @@ class FakeEmbeddingRepository(EmbeddingRepository):
         self,
         texts: tuple[str, ...],
         input_type: Literal["document", "query"] = "document",
-    ) -> tuple[tuple[float, ...], ...]:
+    ) -> tuple[EmbeddingVector, ...]:
         self.calls.append((texts, input_type))
-        return ((0.25, 0.75),)
+        return (
+            EmbeddingVector(
+                dense=(0.25, 0.75),
+                sparse=SparseEmbedding(indices=(7,), values=(1.0,)),
+            ),
+        )
 
     async def close(self) -> None:
         return None
@@ -42,7 +51,8 @@ class QueryEmbeddingUseCaseTests(unittest.IsolatedAsyncioTestCase):
 
         vector = await usecase.execute("  What is RAG?  ")
 
-        self.assertEqual(vector, (0.25, 0.75))
+        self.assertEqual(vector.dense, (0.25, 0.75))
+        self.assertEqual(vector.sparse.indices, (7,))
         self.assertEqual(repository.calls, [(("What is RAG?",), "query")])
 
     async def test_rejects_blank_question(self) -> None:

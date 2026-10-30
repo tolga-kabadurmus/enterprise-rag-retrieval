@@ -9,7 +9,10 @@ Dependency failures return sanitized, capability-specific non-500 responses.
 
 ## Retrieval endpoint
 
-`POST /v1/retrieval` embeds the question and retrieves matching Qdrant chunks.
+`POST /v1/retrieval` obtains aligned dense and sparse query vectors, prefetches
+both named Qdrant vector indexes, fuses their rankings with RRF, and returns the
+candidate chunks. FlashRank then reranks those candidates and the endpoint
+returns the final top-k. Its request and response schema did not change.
 
 ```bash
 curl -X POST http://localhost:8000/v1/retrieval \

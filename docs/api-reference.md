@@ -20,6 +20,8 @@
 
 ::: app.common.settings.retrieval
 
+::: app.common.settings.reranking
+
 ::: app.common.settings.llm
 
 ::: app.domain.models
@@ -44,6 +46,14 @@
 
 ::: app.repository.llm.openai_repository
 
+::: app.repository.reranking
+
+::: app.repository.reranking.base
+
+::: app.repository.reranking.factory
+
+::: app.repository.reranking.flashrank_repository
+
 ::: app.repository.vector
 
 ::: app.repository.vector.base
@@ -55,5 +65,7 @@
 ::: app.usecase.query_embedding
 
 ::: app.usecase.retrieve_chunks
+
+::: app.usecase.rerank_chunks
 
 ::: app.usecase.generate_answer

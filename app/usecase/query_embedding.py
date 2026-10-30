@@ -1,17 +1,17 @@
 """Use case for vectorizing a user question."""
 
-from app.repository.embedding_service.base import EmbeddingRepository
+from app.repository.embedding_service.base import EmbeddingRepository, EmbeddingVector
 from app.usecase.base import UseCase
 
 
-class QueryEmbeddingUseCase(UseCase[str, tuple[float, ...]]):
+class QueryEmbeddingUseCase(UseCase[str, EmbeddingVector]):
     """Generate one query-intent vector through an injected repository."""
 
     def __init__(self, repo: EmbeddingRepository) -> None:
         self._repo = repo
 
-    async def execute(self, value: str) -> tuple[float, ...]:
-        """Return the single embedding generated for a non-blank question."""
+    async def execute(self, value: str) -> EmbeddingVector:
+        """Return one dense/sparse embedding for a non-blank question."""
 
         question = value.strip()
         if not question:

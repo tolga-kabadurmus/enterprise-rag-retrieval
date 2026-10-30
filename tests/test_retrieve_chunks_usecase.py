@@ -4,6 +4,7 @@ import unittest
 
 from app.common.settings.retrieval import RetrievalSettings
 from app.repository.vector import VectorRepositoryBase, VectorSearchResult
+from app.repository.embedding_service import EmbeddingVector, SparseEmbedding
 from app.usecase import RetrieveChunksUseCase
 
 
@@ -16,13 +17,15 @@ class FakeVectorRepository(VectorRepositoryBase):
 
     async def search(
         self,
-        query_vector: tuple[float, ...],
+        query_vector: EmbeddingVector,
         limit: int,
+        prefetch_limit: int,
         score_threshold: float | None = None,
     ) -> tuple[VectorSearchResult, ...]:
         self.search_arguments = {
             "query_vector": query_vector,
             "limit": limit,
+            "prefetch_limit": prefetch_limit,
             "score_threshold": score_threshold,
         }
         return self.results
@@ -57,11 +60,16 @@ class RetrieveChunksUseCaseTests(unittest.IsolatedAsyncioTestCase):
             settings=RetrievalSettings(top_k=3, score_threshold=0.5),
         )
 
-        chunks = await usecase.execute((0.1, 0.2))
+        query_vector = EmbeddingVector(
+            dense=(0.1, 0.2),
+            sparse=SparseEmbedding(indices=(9,), values=(1.0,)),
+        )
+        chunks = await usecase.execute(query_vector)
 
         self.assertEqual(chunks[0].text, "Relevant text")
         self.assertEqual(chunks[0].source.object_key, "handbook.pdf")
-        self.assertEqual(repository.search_arguments["limit"], 3)
+        self.assertEqual(repository.search_arguments["limit"], 20)
+        self.assertEqual(repository.search_arguments["prefetch_limit"], 20)
         self.assertEqual(repository.search_arguments["score_threshold"], 0.5)
 
     async def test_rejects_invalid_retrieval_payload(self) -> None:
@@ -80,4 +88,9 @@ class RetrieveChunksUseCaseTests(unittest.IsolatedAsyncioTestCase):
         )
 
         with self.assertRaisesRegex(RuntimeError, "point-1"):
-            await usecase.execute((0.1,))
+            await usecase.execute(
+                EmbeddingVector(
+                    dense=(0.1,),
+                    sparse=SparseEmbedding(indices=(9,), values=(1.0,)),
+                )
+            )

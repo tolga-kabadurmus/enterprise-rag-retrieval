@@ -8,36 +8,31 @@ Its detailed internal design is **to be defined later**, as stated in the projec
 
 - Accept a user question through an HTTP API.
 - Generate a query embedding compatible with the indexing component's embedding model and vector dimensions.
-- Retrieve relevant document chunks and their source metadata from Qdrant.
+- Retrieve relevant chunks with dense and sparse Qdrant searches fused by RRF.
+- Rerank the fused candidate set locally with FlashRank before returning top-k.
 - Construct an LLM request using the question and retrieved context.
 - Return the answer and references to the retrieved sources.
 - Handle invalid requests, unavailable providers, empty retrieval results, and operational errors with logging and appropriate API responses.
 
 ## Conceptual request flow
 
-```text
-      HTTP client
-           |
-           v
- FastAPI endpoint (Granian)
-           |
-           v
- Use case / controller
-           |
-           v
-     Query embedding
-           |
-           v
-     Qdrant retrieval
-           |
-           v
- Retrieved chunks + sources
-           |
-           v
-     LLM generation
-           |
-           v
-   Answer + references
+```mermaid
+flowchart TD
+    Client[HTTP client] --> API[FastAPI /v1/retrieval]
+    API --> Controller[RetrievalController]
+    Controller --> Embed[QueryEmbeddingUseCase]
+    Embed --> EmbeddingService[Embedding service]
+    EmbeddingService --> Dense[Dense query vector]
+    EmbeddingService --> Sparse[Sparse token-frequency vector]
+    Dense --> Qdrant[Qdrant hybrid query]
+    Sparse --> Qdrant
+    Qdrant --> DensePrefetch[Dense prefetch]
+    Qdrant --> SparsePrefetch[Sparse prefetch with IDF]
+    DensePrefetch --> RRF[Reciprocal rank fusion]
+    SparsePrefetch --> RRF
+    RRF --> Candidates[Hybrid candidates]
+    Candidates --> FlashRank[FlashRank cross-encoder]
+    FlashRank --> Chunks[Top-k chunks and sources]
 ```
 
 ## Minimum response contract
@@ -57,7 +52,11 @@ Answers should be grounded in retrieved context. If no usable source material is
 
 ## Configuration
 
-Configuration will be provided through environment variables with safe templates in `.env.example` and real secrets in ignored local `.env` files. Expected configuration categories include Qdrant connectivity and collection, embedding provider/model, LLM provider/model/credentials, and basic runtime settings. **Exact variable names remain to be defined.** The embedding configuration must match the indexing pipeline.
+Configuration is provided through environment variables with a safe template in the root `dev-envs/` directory. Hybrid retrieval uses `QDRANT_DENSE_VECTOR_NAME`, `QDRANT_SPARSE_VECTOR_NAME`, `RAG_CANDIDATE_K`, `RAG_TOP_K`, and `RAG_HYBRID_PREFETCH_LIMIT`. Reranking uses the `RERANKING_` settings group. The embedding dense model, sparse model, and vector names must match indexing.
+
+The default FlashRank TinyBERT model is intentionally the smallest CPU option
+and is best suited to English. Use a supported multilingual model when the
+indexed corpus requires multilingual reranking.
 
 ## Running with Docker Compose
 
@@ -94,6 +93,6 @@ The maintained developer documentation starts at [`docs/index.md`](docs/index.md
 
 ## Future enhancements
 
-Potential additions include hybrid search, reranking, response streaming, conversation memory, prompt templates, multi-agent workflows, evaluation pipelines, CI/CD, Kubernetes/OpenShift Helm charts, and an observability dashboard. These are **optional** and should not be represented as already implemented.
+Potential additions include response streaming, conversation memory, prompt templates, multi-agent workflows, evaluation pipelines, CI/CD, Kubernetes/OpenShift Helm charts, and an observability dashboard. These are **optional** and should not be represented as already implemented.
 
 This README is **conceptual documentation** for an application that has not yet been fully designed or implemented. Keep it synchronized with the actual routes, schemas, dependencies, and container behavior as development proceeds.

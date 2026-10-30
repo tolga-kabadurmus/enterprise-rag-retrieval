@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict
 from app.common.settings.api import ApiSettings
 from app.common.settings.embedding import EmbeddingProvider, EmbeddingServiceSettings
 from app.common.settings.llm import LLMProvider, LLMSettings
+from app.common.settings.reranking import RerankingProvider, RerankingSettings
 from app.common.settings.retrieval import RetrievalSettings
 from app.common.settings.vector import VectorProvider, VectorSettings
 
@@ -19,6 +20,7 @@ class ApplicationSettings(BaseModel):
     embedding: EmbeddingServiceSettings
     vector: VectorSettings
     retrieval: RetrievalSettings
+    reranking: RerankingSettings
     llm: LLMSettings
 
 
@@ -37,6 +39,7 @@ def load_settings() -> ApplicationSettings:
         embedding=EmbeddingServiceSettings(),
         vector=VectorSettings(),
         retrieval=RetrievalSettings(),
+        reranking=RerankingSettings(),
         llm=LLMSettings(),
     )
 
@@ -49,6 +52,8 @@ __all__ = [
     "LLMProvider",
     "LLMSettings",
     "RetrievalSettings",
+    "RerankingProvider",
+    "RerankingSettings",
     "VectorProvider",
     "VectorSettings",
     "load_settings",

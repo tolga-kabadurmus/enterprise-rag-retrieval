@@ -6,7 +6,13 @@ from unittest.mock import patch
 
 from pydantic import ValidationError
 
-from app.common.settings import LLMProvider, LLMSettings, VectorSettings, load_settings
+from app.common.settings import (
+    LLMProvider,
+    LLMSettings,
+    RetrievalSettings,
+    VectorSettings,
+    load_settings,
+)
 
 
 VALID_ENV = {
@@ -28,6 +34,9 @@ class SettingsTests(unittest.TestCase):
 
         self.assertEqual(settings.api.port, 8082)
         self.assertEqual(settings.retrieval.top_k, 5)
+        self.assertEqual(settings.retrieval.candidate_k, 20)
+        self.assertEqual(settings.retrieval.hybrid_prefetch_limit, 20)
+        self.assertEqual(settings.reranking.provider.value, "flashrank")
         self.assertEqual(settings.vector.collection_name, "chunks")
         self.assertEqual(settings.llm.model, "test-model")
         self.assertIn("supplied context", settings.llm.system_prompt)
@@ -44,6 +53,12 @@ class SettingsTests(unittest.TestCase):
         with patch.dict(os.environ, environment, clear=True):
             with self.assertRaises(ValidationError):
                 VectorSettings()
+
+    def test_retrieval_candidate_limits_are_ordered(self) -> None:
+        with self.assertRaises(ValidationError):
+            RetrievalSettings(top_k=5, candidate_k=4, hybrid_prefetch_limit=20)
+        with self.assertRaises(ValidationError):
+            RetrievalSettings(top_k=5, candidate_k=20, hybrid_prefetch_limit=19)
 
     def test_llm_api_key_is_masked(self) -> None:
         environment = VALID_ENV | {"LLM_API_KEY": "private-value"}

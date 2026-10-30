@@ -10,7 +10,8 @@ The service will follow the project Clean Architecture conventions:
 
 The query-embedding slice is implemented: `QueryEmbeddingUseCase` depends on
 the embedding repository contract, and the HTTPX adapter calls the shared
-embedding service with explicit `query` intent. The registry-based factory
+embedding service with explicit `query` intent. It validates and returns aligned
+dense and sparse representations. The registry-based factory
 selects the validated provider enum. FastAPI lifespan creates one pooled HTTPX
 client, injects the repository into the use case through `app.state`, and
 closes it during shutdown. A temporary `POST /v1/embeddings` endpoint exposes
@@ -19,16 +20,47 @@ coordinates that use case with `RetrieveChunksUseCase`, and
 `POST /v1/retrieval` exposes the question-to-context slice. The final LLM-backed
 RAG query endpoint and health endpoints remain unimplemented.
 
-`UnhandledExceptionMiddleware` converts embedding, vector retrieval, and LLM
+`UnhandledExceptionMiddleware` converts embedding, vector retrieval, reranking, and LLM
 provider failures into sanitized `429`, `502`, `503`, or `504` responses.
 Invalid application input uses `422`; unexpected failures are logged and
 returned as a generic `503` rather than exposing an HTTP 500 response.
 
+```mermaid
+flowchart LR
+    Request[POST /v1/retrieval] --> Controller[RetrievalController]
+    Controller --> EmbedUC[QueryEmbeddingUseCase]
+    EmbedUC --> EmbeddingAPI[Embedding service]
+    EmbeddingAPI --> Dense[Dense vector]
+    EmbeddingAPI --> Sparse[Sparse vector]
+    Controller --> RetrieveUC[RetrieveChunksUseCase]
+    Dense --> RetrieveUC
+    Sparse --> RetrieveUC
+    RetrieveUC --> VectorRepo[VectorRepositoryBase]
+    VectorRepo --> DenseSearch[Qdrant dense prefetch]
+    VectorRepo --> SparseSearch[Qdrant sparse prefetch]
+    DenseSearch --> RRF[RRF fusion]
+    SparseSearch --> RRF
+    RRF --> Candidates[Hybrid candidates]
+    Candidates --> RerankUC[RerankChunksUseCase]
+    RerankUC --> FlashRank[FlashRank repository]
+    FlashRank --> Results[Top-k chunks with citations]
+```
+
 The vector repository follows the same lifecycle: startup creates one
 `AsyncQdrantClient`, selects `QdrantVectorRepository` through its capability
 factory, and stores both on `app.state`. `RetrieveChunksUseCase` wraps the
-provider-neutral repository, applies configured top-k and score-threshold
-values, and maps indexed payloads into validated domain chunks and citations.
+provider-neutral repository, applies configured prefetch, candidate, and optional
+score-threshold values, and maps indexed payloads into validated domain chunks
+and citations. Qdrant performs both named-vector prefetches and reciprocal rank
+fusion in one query.
+
+`RerankChunksUseCase` sends the fused candidates through the provider-neutral
+reranking repository, replaces their RRF scores with FlashRank relevance scores,
+and returns the configured top-k. FastAPI startup loads one shared
+`ms-marco-TinyBERT-L-2-v2` ranker. Inference is blocking CPU work, so the adapter
+runs it with `asyncio.to_thread()` behind a bounded semaphore. Model loading
+fails startup if the artifact cannot be downloaded or loaded. The default cache
+is ephemeral and may download the approximately 4 MB model after a fresh start.
 
 Strict immutable domain models now define the user question, retrieved chunks,
 source references, generated answers, and future REST request/response shapes.

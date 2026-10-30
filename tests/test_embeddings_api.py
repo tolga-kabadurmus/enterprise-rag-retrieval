@@ -8,6 +8,7 @@ from fastapi import FastAPI
 
 from app.api.embeddings import router
 from app.common.settings.embedding import EmbeddingServiceSettings
+from app.repository.embedding_service import EmbeddingVector, SparseEmbedding
 
 
 class FakeQueryEmbeddingUseCase:
@@ -16,9 +17,12 @@ class FakeQueryEmbeddingUseCase:
     def __init__(self) -> None:
         self.questions: list[str] = []
 
-    async def execute(self, question: str) -> tuple[float, ...]:
+    async def execute(self, question: str) -> EmbeddingVector:
         self.questions.append(question)
-        return (0.6, 0.8)
+        return EmbeddingVector(
+            dense=(0.6, 0.8),
+            sparse=SparseEmbedding(indices=(3,), values=(1.0,)),
+        )
 
 
 class QueryEmbeddingEndpointTests(unittest.IsolatedAsyncioTestCase):
