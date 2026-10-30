@@ -90,6 +90,8 @@ This component keeps its own `requirements.txt`, tests, and Dockerfile under `Do
 
 Use unit tests for use cases, controllers, source-reference mapping, and request validation, with fake/mock repositories. Use integration tests for Qdrant and the configured embedding/LLM provider as appropriate, plus an end-to-end check against documents indexed by the indexing component. Do not leak secrets, sensitive document contents, or detailed internal errors in API responses or logs. MkDocs is the selected documentation framework.
 
+The maintained developer documentation starts at [`docs/index.md`](docs/index.md).
+
 ## Future enhancements
 
 Potential additions include hybrid search, reranking, response streaming, conversation memory, prompt templates, multi-agent workflows, evaluation pipelines, CI/CD, Kubernetes/OpenShift Helm charts, and an observability dashboard. These are **optional** and should not be represented as already implemented.

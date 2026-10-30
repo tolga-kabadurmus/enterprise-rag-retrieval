@@ -1,0 +1,1 @@
+"""External capability repository package."""
