@@ -42,6 +42,7 @@ class EmbeddingServiceRepositoryTests(unittest.IsolatedAsyncioTestCase):
                 200,
                 json={
                     "model": "intfloat/multilingual-e5-small",
+                    "revision": "main",
                     "dimension": 2,
                     "normalized": True,
                     "embeddings": [[0.6, 0.8]],
@@ -75,6 +76,7 @@ class EmbeddingServiceRepositoryTests(unittest.IsolatedAsyncioTestCase):
                     200,
                     json={
                         "model": "intfloat/multilingual-e5-small",
+                        "revision": "main",
                         "dimension": 3,
                         "normalized": True,
                         "embeddings": [[0.1, 0.2, 0.3]],

@@ -25,6 +25,7 @@ class EmbeddingResponse(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     model: str
+    revision: str
     dimension: int = Field(ge=1)
     normalized: bool
     embeddings: tuple[tuple[float, ...], ...]
@@ -106,10 +107,19 @@ class EnterpriseEmbeddingServiceRepository(EmbeddingRepository):
             raise RuntimeError(
                 f"embedding service returned unexpected model {result.model!r}"
             )
+        if result.revision != self._settings.expected_revision:
+            raise RuntimeError(
+                "embedding service returned unexpected revision "
+                f"{result.revision!r}"
+            )
         if result.dimension != self._settings.expected_dimension:
             raise RuntimeError(
                 "embedding service returned unexpected dimension "
                 f"{result.dimension}; expected {self._settings.expected_dimension}"
+            )
+        if result.normalized is not self._settings.expected_normalized:
+            raise RuntimeError(
+                "embedding service returned unexpected normalization status"
             )
         if len(result.embeddings) != len(texts):
             raise RuntimeError("embedding service returned the wrong vector count")

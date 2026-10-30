@@ -11,7 +11,10 @@ from fastapi import FastAPI
 from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 from qdrant_client import AsyncQdrantClient
 
+from app.api import router as api_router
 from app.common.settings import LLMProvider, load_settings
+from app.controller import RetrievalController
+from app.middleware import UnhandledExceptionMiddleware
 from app.repository.embedding_service import (
     EmbeddingRepositoryFactory,
     EnterpriseEmbeddingServiceRepository,
@@ -163,14 +166,20 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
         application.state.settings = settings
         application.state.embedding_repository = embedding_repository
-        application.state.query_embedding_usecase = QueryEmbeddingUseCase(
+        query_embedding_usecase = QueryEmbeddingUseCase(
             repo=embedding_repository
         )
+        application.state.query_embedding_usecase = query_embedding_usecase
         application.state.vector_client = vector_client
         application.state.vector_repository = vector_repository
-        application.state.retrieve_chunks_usecase = RetrieveChunksUseCase(
+        retrieve_chunks_usecase = RetrieveChunksUseCase(
             repo=vector_repository,
             settings=settings.retrieval,
+        )
+        application.state.retrieve_chunks_usecase = retrieve_chunks_usecase
+        application.state.retrieval_controller = RetrievalController(
+            query_embedding_usecase=query_embedding_usecase,
+            retrieve_chunks_usecase=retrieve_chunks_usecase,
         )
         application.state.llm_http_client = llm_http_client
         application.state.llm_client = llm_client
@@ -203,12 +212,15 @@ def create_app() -> FastAPI:
         A FastAPI application ready to be served by an ASGI server.
     """
 
-    return FastAPI(
+    application = FastAPI(
         title="Enterprise RAG Query",
         version="0.1.0",
         description="Enterprise retrieval and answer-generation service.",
         lifespan=lifespan,
     )
+    application.add_middleware(UnhandledExceptionMiddleware)
+    application.include_router(api_router)
+    return application
 
 
 app = create_app()

@@ -7,6 +7,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 
 from app.main import app, create_app
+from app.controller import RetrievalController
 from app.repository.llm import AnthropicLLMRepository, CohereLLMRepository
 from app.usecase import QueryEmbeddingUseCase, RetrieveChunksUseCase
 from app.usecase import GenerateAnswerUseCase
@@ -43,6 +44,14 @@ class ApplicationScaffoldTests(unittest.TestCase):
         application = create_app()
         self.assertEqual(application.title, "Enterprise RAG Query")
         self.assertEqual(application.version, "0.1.0")
+        self.assertIn(
+            "/v1/embeddings",
+            {route.path for route in application.routes},
+        )
+        self.assertIn(
+            "/v1/retrieval",
+            {route.path for route in application.routes},
+        )
 
 
 class ApplicationLifespanTests(unittest.IsolatedAsyncioTestCase):
@@ -68,6 +77,10 @@ class ApplicationLifespanTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(
                     application.state.retrieve_chunks_usecase,
                     RetrieveChunksUseCase,
+                )
+                self.assertIsInstance(
+                    application.state.retrieval_controller,
+                    RetrievalController,
                 )
                 llm_repository = application.state.llm_repository
                 llm_http_client = application.state.llm_http_client

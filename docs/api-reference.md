@@ -2,6 +2,14 @@
 
 ::: app.main
 
+::: app.api.embeddings
+
+::: app.api.retrieval
+
+::: app.controller.retrieval
+
+::: app.middleware.exceptions
+
 ::: app.common.settings
 
 ::: app.common.settings.api

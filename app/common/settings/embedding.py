@@ -38,7 +38,9 @@ class EmbeddingServiceSettings(BaseSettings):
         default="intfloat/multilingual-e5-small",
         min_length=1,
     )
+    expected_revision: str = Field(default="main", min_length=1)
     expected_dimension: int = Field(default=384, ge=1)
+    expected_normalized: bool = True
 
     @field_validator("url")
     @classmethod

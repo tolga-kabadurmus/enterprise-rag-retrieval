@@ -25,7 +25,8 @@ creates one asynchronous Qdrant client for shared use and closes it during
 shutdown.
 
 The embedding group configures `URL`, `API_PATH`, `PROVIDER`, HTTP timeouts and
-connection limits, request bounds, and the expected model and vector dimension.
+connection limits, request bounds, and the expected model, revision, vector
+dimension, and normalization status.
 FastAPI startup uses these values to create one pooled HTTPX client and closes
 it at shutdown. Live connectivity validation remains unimplemented.
 
