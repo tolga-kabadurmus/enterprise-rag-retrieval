@@ -1,5 +1,7 @@
 """REST endpoints for complete and streamed grounded answers."""
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -16,8 +18,10 @@ from app.domain import (
     QuerySourcesEvent,
     QueryStreamEvent,
 )
+from app.middleware.exceptions import safe_error_response
 
 router = APIRouter(prefix="/v1", tags=["query"])
+LOGGER = logging.getLogger(__name__)
 
 QUERY_ERROR_RESPONSES = {
     422: {
@@ -102,11 +106,11 @@ data: {"event":"done"}
 
 """
 
-RESERVED_ERROR_SSE_EXAMPLE = """event: delta
+ERROR_SSE_EXAMPLE = """event: delta
 data: {"event":"delta","delta":"Employees receive "}
 
 event: error
-data: {"event":"error","code":"stream_failed","detail":"answer streaming could not be completed"}
+data: {"event":"error","code":"stream_failed","detail":"LLM provider is unavailable"}
 
 event: done
 data: {"event":"done"}
@@ -151,6 +155,37 @@ def _sse(event: QueryStreamEvent) -> str:
     return f"event: {event.event}\ndata: {event.model_dump_json()}\n\n"
 
 
+async def _stream_events(
+    controller: AnswerQuestionController,
+    payload: QueryRequest,
+) -> AsyncIterator[str]:
+    """Serialize controller events and safely terminate failed or cancelled streams.
+
+    Once response headers have been sent, an HTTP error status is no longer
+    possible. Internal failures therefore become a sanitized ``error`` event
+    followed by ``done``. Cancellation is re-raised so Starlette can stop work
+    immediately when the client disconnects. The upstream async iterator is
+    always closed, which propagates cleanup to the LLM provider stream.
+    """
+
+    events = controller.stream(payload)
+    try:
+        async for event in events:
+            yield _sse(event)
+    except asyncio.CancelledError:
+        LOGGER.info("query stream cancelled by disconnected client")
+        raise
+    except Exception as error:
+        _, detail = safe_error_response(error)
+        LOGGER.exception("query stream failed after response started")
+        yield _sse(QueryErrorEvent(detail=detail))
+        yield _sse(QueryDoneEvent())
+    finally:
+        close = getattr(events, "aclose", None)
+        if close is not None:
+            await close()
+
+
 @router.post(
     "/query",
     response_model=QueryResponse,
@@ -188,9 +223,10 @@ async def answer_query(
     description=(
         "Streams UTF-8 Server-Sent Events. A successful stream contains one "
         "or more delta events, one sources event, and one done event in that "
-        "order. The documented error event is reserved for the upcoming "
-        "mid-stream sanitization step and is not emitted by the current "
-        "implementation. HTTP errors listed below apply before streaming starts."
+        "order. If a failure occurs after streaming starts, the endpoint emits "
+        "one sanitized error event followed by done. Client disconnection cancels "
+        "and closes the upstream LLM stream. HTTP errors listed below apply before "
+        "streaming starts."
     ),
     operation_id="stream_query_v1",
     responses={
@@ -213,13 +249,13 @@ async def answer_query(
                             "summary": "Successful answer and citations",
                             "value": SUCCESSFUL_SSE_EXAMPLE,
                         },
-                        "reserved_error_stream": {
-                            "summary": "Reserved sanitized mid-stream failure",
+                        "error_stream": {
+                            "summary": "Sanitized mid-stream failure",
                             "description": (
-                                "Contract reserved for the next error-handling step; "
-                                "the current endpoint does not emit this event."
+                                "Provider details are logged server-side and are not "
+                                "included in the public error event."
                             ),
-                            "value": RESERVED_ERROR_SSE_EXAMPLE,
+                            "value": ERROR_SSE_EXAMPLE,
                         },
                     },
                 }
@@ -237,12 +273,8 @@ async def stream_query(
 
     controller = _controller(request)
 
-    async def event_stream() -> AsyncIterator[str]:
-        async for event in controller.stream(payload):
-            yield _sse(event)
-
     return StreamingResponse(
-        event_stream(),
+        _stream_events(controller, payload),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache"},
     )

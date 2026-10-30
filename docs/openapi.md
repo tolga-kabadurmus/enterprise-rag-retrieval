@@ -47,12 +47,16 @@ sequence of differently shaped SSE events.
 | --- | --- | --- |
 | `delta` | A non-empty answer fragment. | One or more before sources. |
 | `sources` | The final response-scoped citations. | Once after all deltas. |
-| `error` | A sanitized code and safe detail. | Reserved for the next mid-stream error-handling change; not emitted yet. |
-| `done` | A terminal marker. | Once at the end of a successful stream. |
+| `error` | A sanitized code and safe detail. | Emitted when a dependency fails after response streaming has started. |
+| `done` | A terminal marker. | Once after either `sources` or `error`. |
 
 HTTP `422`, `429`, `502`, `503`, and `504` responses apply when the failure is
 known before streaming starts. Once response headers have been sent, HTTP status
-cannot change; the reserved `error` event will cover that later lifecycle stage.
+cannot change. The service emits a sanitized `error` event followed by `done`
+without exposing provider responses, stack traces, paths, or credentials. If the
+client disconnects, the response task is cancelled and the upstream LLM stream
+is explicitly closed; final SSE events are therefore not guaranteed to a
+disconnected client.
 
 The checked contract tests inspect `/openapi.json` to prevent accidental loss
 of endpoint descriptions, response schemas, error statuses, or stable

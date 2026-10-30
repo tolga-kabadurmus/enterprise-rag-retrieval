@@ -87,13 +87,14 @@ class OpenApiContractTests(unittest.TestCase):
         self.assertEqual(stream_content["schema"]["type"], "string")
         self.assertEqual(
             set(stream_content["examples"]),
-            {"successful_stream", "reserved_error_stream"},
+            {"successful_stream", "error_stream"},
         )
         self.assertEqual(
             set(streamed["x-sse-event-schemas"]),
             {"delta", "sources", "error", "done"},
         )
-        self.assertIn("not emitted", streamed["description"])
+        self.assertIn("sanitized error event", streamed["description"])
+        self.assertIn("Client disconnection cancels", streamed["description"])
 
     def test_documents_every_query_error_response(self) -> None:
         """Describe validation and sanitized dependency errors with examples."""
