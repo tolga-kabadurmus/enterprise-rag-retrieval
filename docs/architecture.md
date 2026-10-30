@@ -8,6 +8,6 @@ The service will follow the project Clean Architecture conventions:
 - Capability-specific repositories isolate embedding, vector-store, and LLM I/O.
 - `app/main.py` is the composition and ASGI entry point.
 
-Only the package boundaries and application entry point currently exist. No
-provider adapters, use cases, controllers, RAG endpoint, or health endpoint has
-been implemented.
+The package boundaries, application entry point, and validated settings groups
+currently exist. No provider adapters, use cases, controllers, RAG endpoint,
+or health endpoint has been implemented.

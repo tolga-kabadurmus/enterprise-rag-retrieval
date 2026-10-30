@@ -1,8 +1,9 @@
 # Enterprise RAG Query
 
 This project is the query-side service of Enterprise RAG. The current code is
-only a runnable FastAPI/Granian foundation; retrieval, embedding, LLM calls,
-configuration, and public query endpoints are not implemented yet.
+a runnable FastAPI/Granian foundation with validated environment configuration.
+Retrieval, embedding calls, LLM calls, and public query endpoints are not
+implemented yet.
 
 ## Development
 
@@ -15,3 +16,4 @@ mkdocs build --strict
 ```
 
 See [Architecture](architecture.md) for the intended layer boundaries.
+See [Configuration](configuration.md) for the validated environment contract.
