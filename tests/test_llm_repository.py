@@ -44,6 +44,9 @@ class OpenAILLMRepositoryTests(unittest.IsolatedAsyncioTestCase):
             kwargs["messages"][0]["content"],
             "Configured system prompt",
         )
+        self.assertEqual(kwargs["max_completion_tokens"], 1_024)
+        self.assertNotIn("max_tokens", kwargs)
+        self.assertNotIn("temperature", kwargs)
         self.assertFalse(kwargs["stream"])
 
     async def test_streams_non_empty_text_deltas(self) -> None:
@@ -57,7 +60,11 @@ class OpenAILLMRepositoryTests(unittest.IsolatedAsyncioTestCase):
         deltas = [delta async for delta in repository.stream(self.messages)]
 
         self.assertEqual(deltas, ["Grounded", " answer."])
-        self.assertTrue(self.client.chat.completions.create.await_args.kwargs["stream"])
+        kwargs = self.client.chat.completions.create.await_args.kwargs
+        self.assertEqual(kwargs["max_completion_tokens"], 1_024)
+        self.assertNotIn("max_tokens", kwargs)
+        self.assertNotIn("temperature", kwargs)
+        self.assertTrue(kwargs["stream"])
 
     async def test_factory_creates_registered_openai_repository(self) -> None:
         factory = LLMRepositoryFactory()

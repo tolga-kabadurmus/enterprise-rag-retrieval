@@ -44,7 +44,7 @@ class LLMSettings(BaseSettings):
     verify_tls: bool = True
     max_connections: int = Field(default=20, ge=1)
     max_keepalive_connections: int = Field(default=10, ge=0)
-    temperature: float = Field(default=0.0, ge=0, le=2)
+    temperature: float | None = Field(default=None, ge=0, le=2)
     max_output_tokens: int = Field(default=1_024, ge=1, le=32_768)
 
     @field_validator("system_prompt")

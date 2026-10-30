@@ -2,9 +2,15 @@
 
 ::: app.main
 
+::: app.api.models
+
 ::: app.api.embeddings
 
+::: app.api.query
+
 ::: app.api.retrieval
+
+::: app.controller.answer_question
 
 ::: app.controller.retrieval
 

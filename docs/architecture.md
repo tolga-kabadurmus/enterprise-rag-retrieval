@@ -17,8 +17,10 @@ client, injects the repository into the use case through `app.state`, and
 closes it during shutdown. A temporary `POST /v1/embeddings` endpoint exposes
 this one step for development verification. `RetrievalController` now
 coordinates that use case with `RetrieveChunksUseCase`, and
-`POST /v1/retrieval` exposes the question-to-context slice. The final LLM-backed
-RAG query endpoint and health endpoints remain unimplemented.
+`POST /v1/retrieval` exposes the question-to-context slice.
+`AnswerQuestionController` reuses that controller, then delegates grounded
+generation to `GenerateAnswerUseCase`. `POST /v1/query` returns one JSON result;
+`POST /v1/query/stream` returns Server-Sent Events.
 
 `UnhandledExceptionMiddleware` converts embedding, vector retrieval, reranking, and LLM
 provider failures into sanitized `429`, `502`, `503`, or `504` responses.
@@ -44,6 +46,10 @@ flowchart LR
     Candidates --> RerankUC[RerankChunksUseCase]
     RerankUC --> FlashRank[FlashRank repository]
     FlashRank --> Results[Top-k chunks with citations]
+    Results --> AnswerController[AnswerQuestionController]
+    AnswerController --> GenerateUC[GenerateAnswerUseCase]
+    GenerateUC --> LLMRepo[LLMRepositoryBase]
+    LLMRepo --> Answer[Answer plus S1..Sn citations]
 ```
 
 The vector repository follows the same lifecycle: startup creates one
@@ -62,9 +68,9 @@ runs it with `asyncio.to_thread()` behind a bounded semaphore. Model loading
 fails startup if the artifact cannot be downloaded or loaded. The default cache
 is ephemeral and may download the approximately 4 MB model after a fresh start.
 
-Strict immutable domain models now define the user question, retrieved chunks,
-source references, generated answers, and future REST request/response shapes.
-They do not yet introduce an endpoint or orchestration behavior.
+Strict immutable domain models define the user question, retrieved chunks,
+source references, response-scoped citation labels, generated answers, and
+complete or streamed REST response shapes.
 
 The LLM capability provides a provider-neutral base contract, registry factory,
 and OpenAI-compatible, Anthropic, and Cohere SDK adapters for complete and
@@ -73,6 +79,10 @@ streamed generation. FastAPI lifespan selects the registered repository from
 registers them on `app.state`. It injects the repository into
 `GenerateAnswerUseCase` and closes the pool during shutdown. Provider-specific
 message and response shapes remain inside their repository adapters. The use
-case builds only the user question/context message; `LLMRepositoryBase`
-prepends the configured system prompt. The use case returns deduplicated source
-references; no REST streaming endpoint exists yet.
+case assigns stable `S1` through `Sn` labels in retrieval order and uses those
+same labels in the prompt and response citations. `LLMRepositoryBase` prepends
+the configured system prompt. Complete generation returns JSON; streamed
+generation emits answer deltas followed by citations and a completion event.
+Both public query modes use provider streaming internally. `/v1/query` buffers
+all provider deltas before returning one JSON response, while
+`/v1/query/stream` forwards deltas as SSE events.

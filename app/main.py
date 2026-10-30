@@ -15,7 +15,7 @@ from qdrant_client import AsyncQdrantClient
 
 from app.api import router as api_router
 from app.common.settings import LLMProvider, load_settings
-from app.controller import RetrievalController
+from app.controller import AnswerQuestionController, RetrievalController
 from app.middleware import UnhandledExceptionMiddleware
 from app.repository.embedding_service import (
     EmbeddingRepositoryFactory,
@@ -41,6 +41,30 @@ from app.usecase import (
     RerankChunksUseCase,
     RetrieveChunksUseCase,
 )
+
+OPENAPI_TAGS = [
+    {
+        "name": "query",
+        "description": (
+            "Complete and streamed grounded answers with response-scoped "
+            "source citations."
+        ),
+    },
+    {
+        "name": "retrieval",
+        "description": (
+            "Question vectorization, hybrid vector search, fusion, reranking, "
+            "and citation-ready chunks."
+        ),
+    },
+    {
+        "name": "embeddings",
+        "description": (
+            "Diagnostic query-vectorization endpoint backed by the shared "
+            "embedding service."
+        ),
+    },
+]
 
 
 @asynccontextmanager
@@ -209,16 +233,24 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
             top_k=settings.retrieval.top_k,
         )
         application.state.rerank_chunks_usecase = rerank_chunks_usecase
-        application.state.retrieval_controller = RetrievalController(
+        retrieval_controller = RetrievalController(
             query_embedding_usecase=query_embedding_usecase,
             retrieve_chunks_usecase=retrieve_chunks_usecase,
             rerank_chunks_usecase=rerank_chunks_usecase,
         )
+        application.state.retrieval_controller = retrieval_controller
         application.state.llm_http_client = llm_http_client
         application.state.llm_client = llm_client
         application.state.llm_repository = llm_repository
-        application.state.generate_answer_usecase = GenerateAnswerUseCase(
+        generate_answer_usecase = GenerateAnswerUseCase(
             repo=llm_repository
+        )
+        application.state.generate_answer_usecase = generate_answer_usecase
+        application.state.answer_question_controller = (
+            AnswerQuestionController(
+                retrieval_controller=retrieval_controller,
+                generate_answer_usecase=generate_answer_usecase,
+            )
         )
         yield
     finally:
@@ -248,9 +280,18 @@ def create_app() -> FastAPI:
     """
 
     application = FastAPI(
-        title="Enterprise RAG Query",
+        title="Enterprise RAG Retrieval Service",
         version="0.1.0",
-        description="Enterprise retrieval and answer-generation service.",
+        description=(
+            "Enterprise retrieval API for query embedding, hybrid Qdrant "
+            "search, candidate fusion, reranking, and citation-ready source "
+            "chunks. Authentication and authorization are outside this "
+            "project's scope."
+        ),
+        openapi_tags=OPENAPI_TAGS,
+        docs_url="/docs",
+        redoc_url="/redoc",
+        openapi_url="/openapi.json",
         lifespan=lifespan,
     )
     application.add_middleware(UnhandledExceptionMiddleware)

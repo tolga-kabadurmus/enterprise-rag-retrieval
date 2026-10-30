@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.api.models import DEPENDENCY_ERROR_RESPONSES
 from app.domain.models import QueryRequest
 from app.usecase import QueryEmbeddingUseCase
 
@@ -10,19 +11,56 @@ from app.usecase import QueryEmbeddingUseCase
 class QueryEmbeddingResponse(BaseModel):
     """Embedding-service-compatible response for one user question."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid")
+    model_config = ConfigDict(
+        frozen=True,
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "model": "intfloat/multilingual-e5-small",
+                    "revision": "main",
+                    "dimension": 3,
+                    "normalized": True,
+                    "embeddings": [[0.12, -0.34, 0.93]],
+                }
+            ]
+        },
+    )
 
-    model: str = Field(min_length=1)
-    revision: str = Field(min_length=1)
-    dimension: int = Field(ge=1)
-    normalized: bool
-    embeddings: tuple[tuple[float, ...], ...]
+    model: str = Field(min_length=1, description="Dense embedding model name.")
+    revision: str = Field(
+        min_length=1,
+        description="Configured model artifact revision.",
+    )
+    dimension: int = Field(
+        ge=1,
+        description="Number of values in the returned dense vector.",
+    )
+    normalized: bool = Field(
+        description="Whether the dense vector is L2 normalized."
+    )
+    embeddings: tuple[tuple[float, ...], ...] = Field(
+        min_length=1,
+        max_length=1,
+        description="Dense query vector returned as a single-item batch."
+    )
 
 
-router = APIRouter(prefix="/v1", tags=["temporary"])
+router = APIRouter(prefix="/v1", tags=["embeddings"])
 
 
-@router.post("/embeddings", response_model=QueryEmbeddingResponse)
+@router.post(
+    "/embeddings",
+    response_model=QueryEmbeddingResponse,
+    summary="Create a query embedding",
+    description=(
+        "Vectorizes one user question through the shared embedding service. "
+        "This diagnostic endpoint does not retrieve document chunks or send "
+        "content to an LLM."
+    ),
+    operation_id="create_query_embedding_v1",
+    responses=DEPENDENCY_ERROR_RESPONSES,
+)
 async def create_query_embedding(
     payload: QueryRequest,
     request: Request,

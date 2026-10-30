@@ -7,7 +7,7 @@ from unittest.mock import patch
 from fastapi import FastAPI
 
 from app.main import app, create_app
-from app.controller import RetrievalController
+from app.controller import AnswerQuestionController, RetrievalController
 from app.repository.llm import AnthropicLLMRepository, CohereLLMRepository
 from app.usecase import QueryEmbeddingUseCase, RetrieveChunksUseCase
 from app.usecase import GenerateAnswerUseCase, RerankChunksUseCase
@@ -52,7 +52,7 @@ class ApplicationScaffoldTests(unittest.TestCase):
 
     def test_application_factory_sets_service_identity(self) -> None:
         application = create_app()
-        self.assertEqual(application.title, "Enterprise RAG Query")
+        self.assertEqual(application.title, "Enterprise RAG Retrieval Service")
         self.assertEqual(application.version, "0.1.0")
         self.assertIn(
             "/v1/embeddings",
@@ -60,6 +60,11 @@ class ApplicationScaffoldTests(unittest.TestCase):
         )
         self.assertIn(
             "/v1/retrieval",
+            {route.path for route in application.routes},
+        )
+        self.assertIn("/v1/query", {route.path for route in application.routes})
+        self.assertIn(
+            "/v1/query/stream",
             {route.path for route in application.routes},
         )
 
@@ -106,6 +111,10 @@ class ApplicationLifespanTests(unittest.IsolatedAsyncioTestCase):
                 self.assertIsInstance(
                     application.state.generate_answer_usecase,
                     GenerateAnswerUseCase,
+                )
+                self.assertIsInstance(
+                    application.state.answer_question_controller,
+                    AnswerQuestionController,
                 )
                 self.assertFalse(llm_http_client.is_closed)
 

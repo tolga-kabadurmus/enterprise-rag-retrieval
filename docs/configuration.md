@@ -51,7 +51,9 @@ long query/chunk pairs. Multilingual deployments can select FlashRank's larger
 
 The LLM group additionally configures TLS verification and HTTP connection-pool
 limits. `LLM_SYSTEM_PROMPT` configures the short instruction automatically
-prepended by the provider-neutral repository base. `LLM_API_KEY` may remain empty only for an unauthenticated compatible
-local endpoint; authenticated deployments must provide it. The model and base
-URL remain deployment-specific. Startup creates only the SDK client and pooled
-HTTP client selected by `LLM_PROVIDER`.
+prepended by the provider-neutral repository base. Leave `LLM_TEMPERATURE`
+empty to use the provider/model default; set it only when the selected model
+accepts an explicit temperature. `LLM_API_KEY` may remain empty only for an
+unauthenticated compatible local endpoint; authenticated deployments must
+provide it. The model and base URL remain deployment-specific. Startup creates
+only the SDK client and pooled HTTP client selected by `LLM_PROVIDER`.

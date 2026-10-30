@@ -52,12 +52,14 @@ class OpenAILLMRepository(LLMRepositoryBase):
                 yield content
 
     def _request_arguments(self, messages: tuple[LLMMessage, ...]) -> dict[str, Any]:
-        return {
+        arguments: dict[str, Any] = {
             "model": self._settings.model,
             "messages": [message.model_dump(mode="json") for message in messages],
-            "temperature": self._settings.temperature,
-            "max_tokens": self._settings.max_output_tokens,
+            "max_completion_tokens": self._settings.max_output_tokens,
         }
+        if self._settings.temperature is not None:
+            arguments["temperature"] = self._settings.temperature
+        return arguments
 
     def _ensure_available(self, messages: tuple[LLMMessage, ...]) -> None:
         if self._closed:

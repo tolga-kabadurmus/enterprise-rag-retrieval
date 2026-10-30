@@ -19,16 +19,20 @@ class FakeLLMRepository(LLMRepositoryBase):
     def __init__(self) -> None:
         super().__init__("Configured system prompt")
         self.messages: tuple[LLMMessage, ...] = ()
+        self.complete_calls = 0
+        self.stream_calls = 0
 
     async def _generate(self, messages: tuple[LLMMessage, ...]) -> str:
-        self.messages = messages
-        return "Use the documented policy."
+        del messages
+        self.complete_calls += 1
+        raise AssertionError("the query chain must not use non-streaming generation")
 
     async def _stream(
         self,
         messages: tuple[LLMMessage, ...],
     ) -> AsyncIterator[str]:
         self.messages = messages
+        self.stream_calls += 1
         for delta in ("Use the ", "documented policy."):
             yield delta
 
@@ -62,14 +66,21 @@ class GenerateAnswerUseCaseTests(unittest.IsolatedAsyncioTestCase):
         answer = await usecase.execute(self.input)
 
         self.assertEqual(answer.answer, "Use the documented policy.")
+        self.assertEqual(repository.complete_calls, 0)
+        self.assertEqual(repository.stream_calls, 1)
         self.assertEqual(len(answer.sources), 1)
+        self.assertEqual(answer.sources[0].citation_id, "S1")
         self.assertEqual(repository.messages[0].content, "Configured system prompt")
         self.assertIn("What is the policy?", repository.messages[1].content)
         self.assertIn("The policy requires approval.", repository.messages[1].content)
+        self.assertIn("[S1]", repository.messages[1].content)
 
     async def test_streams_repository_deltas(self) -> None:
-        usecase = GenerateAnswerUseCase(repo=FakeLLMRepository())
+        repository = FakeLLMRepository()
+        usecase = GenerateAnswerUseCase(repo=repository)
 
         deltas = [delta async for delta in usecase.stream(self.input)]
 
         self.assertEqual(deltas, ["Use the ", "documented policy."])
+        self.assertEqual(repository.complete_calls, 0)
+        self.assertEqual(repository.stream_calls, 1)

@@ -67,9 +67,10 @@ class AnthropicLLMRepository(LLMRepositoryBase):
                 for message in messages
                 if message.role != "system"
             ],
-            "temperature": self._settings.temperature,
             "max_tokens": self._settings.max_output_tokens,
         }
+        if self._settings.temperature is not None:
+            arguments["temperature"] = self._settings.temperature
         if system:
             arguments["system"] = system
         return arguments

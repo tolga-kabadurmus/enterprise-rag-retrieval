@@ -5,6 +5,7 @@ import unittest
 from pydantic import ValidationError
 
 from app.domain import (
+    CitationReference,
     GeneratedAnswer,
     QueryRequest,
     QueryResponse,
@@ -46,11 +47,32 @@ class DomainModelTests(unittest.TestCase):
         self.assertEqual(chunk.source.page_number, 2)
 
     def test_generated_answer_and_api_response_share_contract(self) -> None:
-        answer = GeneratedAnswer(answer="Travel requires approval.", sources=(self.source,))
+        cited_source = CitationReference(
+            **self.source.model_dump(),
+            citation_id="S1",
+        )
+        answer = GeneratedAnswer(
+            answer="Travel requires approval [S1].",
+            sources=(cited_source,),
+        )
         response = QueryResponse(**answer.model_dump())
 
         self.assertEqual(response.answer, answer.answer)
         self.assertEqual(response.sources, answer.sources)
+
+    def test_citation_id_uses_response_scoped_label(self) -> None:
+        citation = CitationReference(
+            **self.source.model_dump(),
+            citation_id="S1",
+        )
+
+        self.assertEqual(citation.citation_id, "S1")
+
+        with self.assertRaises(ValidationError):
+            CitationReference(
+                **self.source.model_dump(),
+                citation_id="source-one",
+            )
 
     def test_source_page_is_optional_but_one_based_when_present(self) -> None:
         without_page = self.source.model_copy(update={"page_number": None})
