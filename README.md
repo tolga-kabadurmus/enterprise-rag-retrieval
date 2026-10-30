@@ -35,6 +35,43 @@ flowchart TD
     FlashRank --> Chunks[Top-k chunks and sources]
 ```
 
+## Retrieval sequence
+
+The sequence below shows how a request travels through the query service, from
+the HTTP endpoint through embedding, hybrid retrieval, and reranking.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User/client
+    participant API as FastAPI /v1/retrieval
+    participant Controller as RetrievalController
+    participant EmbedUC as QueryEmbeddingUseCase
+    participant Embed as Embedding service
+    participant RetrieveUC as RetrieveChunksUseCase
+    participant Qdrant as Qdrant
+    participant RerankUC as RerankChunksUseCase
+    participant FlashRank as FlashRank
+
+    User->>API: POST question
+    API->>Controller: Retrieval request
+    Controller->>EmbedUC: Embed query
+    EmbedUC->>Embed: Vectorize query
+    Embed-->>EmbedUC: Dense + sparse vectors
+    EmbedUC-->>Controller: Query embedding
+    Controller->>RetrieveUC: Retrieve candidates
+    RetrieveUC->>Qdrant: Dense prefetch + sparse prefetch
+    Qdrant->>Qdrant: RRF fusion
+    Qdrant-->>RetrieveUC: Hybrid candidates
+    RetrieveUC-->>Controller: Candidate chunks
+    Controller->>RerankUC: Rerank candidates
+    RerankUC->>FlashRank: Score question and chunks
+    FlashRank-->>RerankUC: Reranked scores
+    RerankUC-->>Controller: Top-k chunks and sources
+    Controller-->>API: Top-k chunks and source references
+    API-->>User: HTTP response
+```
+
 ## Minimum response contract
 
 The API must include the generated answer and references that identify supporting material (document identifier, source object key, and page/chunk information where available). The exact endpoint route, request/response schema, and HTTP port remain **undecided** and should be specified during implementation; do not treat any example path or port as established.
