@@ -6,11 +6,11 @@ from unittest.mock import patch
 
 from pydantic import ValidationError
 
-from app.common.settings import LLMSettings, VectorSettings, load_settings
+from app.common.settings import LLMProvider, LLMSettings, VectorSettings, load_settings
 
 
 VALID_ENV = {
-    "EMBEDDING_SERVICE_BASE_URL": "http://embedding:8081",
+    "EMBEDDING_SERVICE_URL": "http://embedding:8081",
     "QDRANT_URL": "http://qdrant:6333",
     "QDRANT_COLLECTION_NAME": "chunks",
     "LLM_PROVIDER": "openai_compatible",
@@ -30,6 +30,8 @@ class SettingsTests(unittest.TestCase):
         self.assertEqual(settings.retrieval.top_k, 5)
         self.assertEqual(settings.vector.collection_name, "chunks")
         self.assertEqual(settings.llm.model, "test-model")
+        self.assertIn("supplied context", settings.llm.system_prompt)
+        self.assertEqual(settings.embedding.url, "http://embedding:8081")
 
     def test_llm_provider_is_required(self) -> None:
         environment = VALID_ENV | {"LLM_PROVIDER": ""}
@@ -49,6 +51,23 @@ class SettingsTests(unittest.TestCase):
             settings = LLMSettings()
 
         self.assertNotIn("private-value", repr(settings))
+
+    def test_native_provider_requires_api_key(self) -> None:
+        for provider in (LLMProvider.ANTHROPIC, LLMProvider.COHERE):
+            environment = VALID_ENV | {
+                "LLM_PROVIDER": provider.value,
+                "LLM_API_KEY": "",
+            }
+            with self.subTest(provider=provider):
+                with patch.dict(os.environ, environment, clear=True):
+                    with self.assertRaises(ValidationError):
+                        LLMSettings()
+
+    def test_blank_system_prompt_is_rejected(self) -> None:
+        environment = VALID_ENV | {"LLM_SYSTEM_PROMPT": "   "}
+        with patch.dict(os.environ, environment, clear=True):
+            with self.assertRaises(ValidationError):
+                LLMSettings()
 
     def test_blank_optional_values_use_none(self) -> None:
         environment = VALID_ENV | {

@@ -27,4 +27,6 @@ class VectorSettings(BaseSettings):
     url: AnyHttpUrl
     api_key: SecretStr | None = None
     collection_name: str = Field(min_length=1)
-    timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+    dense_vector_name: str = Field(default="dense", min_length=1)
+    vector_size: int = Field(default=384, ge=1)
+    timeout_seconds: int = Field(default=10, ge=1, le=120)

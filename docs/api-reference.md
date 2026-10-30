@@ -13,3 +13,39 @@
 ::: app.common.settings.retrieval
 
 ::: app.common.settings.llm
+
+::: app.domain.models
+
+::: app.repository.embedding_service
+
+::: app.repository.embedding_service.base
+
+::: app.repository.embedding_service.enterprise_embedding_service_repository
+
+::: app.repository.embedding_service.factory
+
+::: app.repository.llm
+
+::: app.repository.llm.base
+
+::: app.repository.llm.factory
+
+::: app.repository.llm.anthropic_repository
+
+::: app.repository.llm.cohere_repository
+
+::: app.repository.llm.openai_repository
+
+::: app.repository.vector
+
+::: app.repository.vector.base
+
+::: app.repository.vector.factory
+
+::: app.repository.vector.qdrant_repository
+
+::: app.usecase.query_embedding
+
+::: app.usecase.retrieve_chunks
+
+::: app.usecase.generate_answer
