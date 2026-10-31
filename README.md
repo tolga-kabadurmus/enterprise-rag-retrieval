@@ -1,6 +1,6 @@
 # Enterprise RAG — Query
 
-`enterprise-rag-query` is the retrieval and question-answering component of the Enterprise RAG prototype. It exposes a Python **FastAPI** service (served with **Granian**) that embeds a user question, retrieves relevant document chunks from Qdrant, asks an LLM to answer using the retrieved context, and returns the answer **together with source references**.
+`enterprise-rag-retrieval` is the retrieval and question-answering component of the Enterprise RAG prototype. It exposes a Python **FastAPI** service (served with **Granian**) that embeds a user question, retrieves relevant document chunks from Qdrant, asks an LLM to answer using the retrieved context, and returns the answer **together with source references**.
 
 Its detailed internal design is **to be defined later**, as stated in the project's root [`AGENTS.md`](https://github.com/tolga-kabadurmus/enterprise-rag/blob/main/AGENTS.md). The URL assumes that repository is created under the indicated GitHub account. This README only establishes its minimum functional contract and conceptual boundaries.
 
@@ -127,11 +127,18 @@ Answers should be grounded in retrieved context. If no usable source material is
 
 ## Configuration
 
-Configuration is provided through environment variables with a safe template in the root `dev-envs/` directory. Hybrid retrieval uses `QDRANT_DENSE_VECTOR_NAME`, `QDRANT_SPARSE_VECTOR_NAME`, `RAG_CANDIDATE_K`, `RAG_TOP_K`, and `RAG_HYBRID_PREFETCH_LIMIT`. Reranking uses the `RERANKING_` settings group. The embedding dense model, sparse model, and vector names must match indexing.
+The orchestration repository's current safe template is `dev-envs/enterprise-rag-retrieval.example`. Copy it to the Git-ignored `dev-envs/enterprise-rag-retrieval.env`; Compose injects that file only into this service. Configuration is split into immutable Pydantic `BaseSettings` groups and is validated during application composition.
 
-The default FlashRank TinyBERT model is intentionally the smallest CPU option
-and is best suited to English. Use a supported multilingual model when the
-indexed corpus requires multilingual reranking.
+| Prefix | Variables and purpose |
+| --- | --- |
+| `QUERY_API_` | `QUERY_API_HOST`, `QUERY_API_PORT`, and `QUERY_API_LOG_LEVEL` configure Granian; `QUERY_API_REQUEST_TIMEOUT_SECONDS` and `QUERY_API_MAX_QUESTION_CHARACTERS` bound requests. Defaults are `0.0.0.0`, `8082`, `INFO`, `30`, and `4000`. |
+| `EMBEDDING_SERVICE_` | `EMBEDDING_SERVICE_URL`, `EMBEDDING_SERVICE_API_PATH`, `EMBEDDING_SERVICE_PROVIDER`, `EMBEDDING_SERVICE_TIMEOUT_SECONDS`, `EMBEDDING_SERVICE_VERIFY_TLS`, `EMBEDDING_SERVICE_MAX_CONNECTIONS`, `EMBEDDING_SERVICE_MAX_KEEPALIVE_CONNECTIONS`, `EMBEDDING_SERVICE_MAX_BATCH_SIZE`, and `EMBEDDING_SERVICE_MAX_TEXT_CHARACTERS` configure the pooled HTTP client. `EMBEDDING_SERVICE_EXPECTED_MODEL`, `EMBEDDING_SERVICE_EXPECTED_REVISION`, `EMBEDDING_SERVICE_EXPECTED_DIMENSION`, `EMBEDDING_SERVICE_EXPECTED_NORMALIZED`, and `EMBEDDING_SERVICE_EXPECTED_SPARSE_MODEL` validate responses. |
+| `QDRANT_` | `QDRANT_PROVIDER`, required `QDRANT_URL`, optional secret `QDRANT_API_KEY`, required `QDRANT_COLLECTION_NAME`, `QDRANT_DENSE_VECTOR_NAME`, `QDRANT_SPARSE_VECTOR_NAME`, `QDRANT_VECTOR_SIZE`, and `QDRANT_TIMEOUT_SECONDS` configure hybrid retrieval. |
+| `RAG_` | `RAG_TOP_K`, `RAG_CANDIDATE_K`, `RAG_HYBRID_PREFETCH_LIMIT`, optional `RAG_SCORE_THRESHOLD`, and `RAG_MAX_CONTEXT_CHARACTERS` bound retrieval and prompt context. The required ordering is prefetch limit >= candidate count >= top-k. |
+| `RERANKING_` | `RERANKING_PROVIDER`, `RERANKING_MODEL_NAME`, `RERANKING_CACHE_DIR`, `RERANKING_MAX_LENGTH`, and `RERANKING_MAX_CONCURRENCY` configure the singleton FlashRank runtime. Defaults use `ms-marco-TinyBERT-L-2-v2` in `/tmp/flashrank`, length `128`, and concurrency `1`. |
+| `LLM_` | Required `LLM_PROVIDER`, `LLM_BASE_URL`, and `LLM_MODEL`; optional secret `LLM_API_KEY`; plus `LLM_SYSTEM_PROMPT`, `LLM_TIMEOUT_SECONDS`, `LLM_VERIFY_TLS`, `LLM_MAX_CONNECTIONS`, `LLM_MAX_KEEPALIVE_CONNECTIONS`, optional `LLM_TEMPERATURE`, and `LLM_MAX_OUTPUT_TOKENS`. Supported providers are `openai_compatible`, `anthropic`, and `cohere`; native Anthropic/Cohere require an API key. |
+
+The embedding model/revision/dimension/sparse identity and both Qdrant vector names must match indexing. `QDRANT_API_KEY` and `LLM_API_KEY` use `SecretStr`; never commit real credentials. The default FlashRank TinyBERT model is the smallest CPU option and is best suited to English, so multilingual corpora should use a validated multilingual reranker. Full constraints are maintained in [`docs/configuration.md`](docs/configuration.md).
 
 ## OpenAPI documentation
 
@@ -152,8 +159,8 @@ dependency error statuses, field descriptions, tags, and stable operation IDs. S
 This repository is a Git submodule of [`enterprise-rag`](https://github.com/tolga-kabadurmus/enterprise-rag), which owns `docker-compose.yaml`. From the parent repository root, the intended startup command is:
 
 ```bash
-docker compose up -d --build minio qdrant enterprise-rag-query
-docker compose logs -f enterprise-rag-query
+docker compose up -d --build minio qdrant enterprise-rag-retrieval
+docker compose logs -f enterprise-rag-retrieval
 ```
 
 **Planned commands, not yet verified:** These assume the corresponding services are defined in the parent Compose file. The actual API URL, route and exposed port will be documented after the FastAPI application is implemented. The query service depends on content having already been indexed by `enterprise-rag-indexing`.
@@ -185,3 +192,7 @@ The maintained developer documentation starts at [`docs/index.md`](docs/index.md
 Potential additions include conversation memory, prompt templates, multi-agent workflows, evaluation pipelines, CI/CD, Kubernetes/OpenShift Helm charts, and an observability dashboard. These are **optional** and should not be represented as already implemented.
 
 This README is **conceptual documentation** for an application that has not yet been fully designed or implemented. Keep it synchronized with the actual routes, schemas, dependencies, and container behavior as development proceeds.
+
+## Current limitations
+
+no authenticationno authorization procesed have been covered at the project

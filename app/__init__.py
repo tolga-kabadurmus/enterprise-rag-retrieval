@@ -1,1 +1,1 @@
-"""Enterprise RAG query service package."""
+"""Enterprise RAG Retrieval service package."""

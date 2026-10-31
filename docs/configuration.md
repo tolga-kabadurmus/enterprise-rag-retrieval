@@ -2,7 +2,7 @@
 
 Configuration is validated with immutable Pydantic settings groups. The
 application will fail during composition when a required value is missing or
-invalid. Copy `dev-envs/enterprise-rag-query.env.example` in the orchestration
+invalid. Copy `dev-envs/enterprise-rag-retrieval.env.example` in the orchestration
 repository to its non-committed `.env` counterpart and replace deployment
 placeholders.
 

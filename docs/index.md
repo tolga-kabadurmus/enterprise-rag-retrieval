@@ -1,4 +1,4 @@
-# Enterprise RAG Query
+# Enterprise RAG Retrieval
 
 This project is the query-side service of Enterprise RAG. The current code is
 a runnable FastAPI/Granian foundation with validated environment configuration.
@@ -9,7 +9,7 @@ Both paths call the configured LLM in streaming mode; the JSON endpoint buffers
 the received deltas before responding.
 Dependency failures return sanitized, capability-specific non-500 responses.
 
-## Query endpoints
+## Retrieval endpoints
 
 Return one complete answer and response-scoped citations:
 
