@@ -1,0 +1,12 @@
+"""Provider-neutral vector repository capability."""
+
+from app.repository.vector.base import VectorRepositoryBase, VectorSearchResult
+from app.repository.vector.factory import VectorRepositoryFactory
+from app.repository.vector.qdrant_repository import QdrantVectorRepository
+
+__all__ = [
+    "QdrantVectorRepository",
+    "VectorRepositoryBase",
+    "VectorRepositoryFactory",
+    "VectorSearchResult",
+]

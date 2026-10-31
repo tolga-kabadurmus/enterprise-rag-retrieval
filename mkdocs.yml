@@ -1,0 +1,32 @@
+site_name: Enterprise RAG Retrieval
+site_description: Developer documentation for the RAG retrieval service.
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: mkdocs
+
+nav:
+  - Overview: index.md
+  - Architecture: architecture.md
+  - Configuration: configuration.md
+  - OpenAPI and Swagger UI: openapi.md
+  - API reference: api-reference.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths:
+            - .
+          options:
+            docstring_style: google
+            show_root_heading: true
+            show_source: true
+
+markdown_extensions:
+  - admonition
+  - fenced_code
+  - toc:
+      permalink: true
