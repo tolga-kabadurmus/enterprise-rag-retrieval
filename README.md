@@ -1,4 +1,4 @@
-# Enterprise RAG — Query
+# Enterprise RAG — Retrieval
 
 `enterprise-rag-retrieval` is the retrieval and question-answering component of the Enterprise RAG prototype. It exposes a Python **FastAPI** service (served with **Granian**) that embeds a user question, retrieves relevant document chunks from Qdrant, asks an LLM to answer using the retrieved context, and returns the answer **together with source references**.
 
@@ -25,16 +25,16 @@ mapping.
 
 ```mermaid
 flowchart TD
-    Client[HTTP client] --> API[FastAPI POST /v1/query]
+    Client[HTTP client] --> API[FastAPI POST /v1/]
     API --> AnswerController[AnswerQuestionController]
     AnswerController --> RetrievalController[RetrievalController]
-    RetrievalController --> Embed[QueryEmbeddingUseCase]
+    RetrievalController --> Embed[EmbeddingUseCase]
     Embed --> EmbeddingService[Embedding service]
-    EmbeddingService --> Dense[Dense query vector]
+    EmbeddingService --> Dense[Dense  vector]
     EmbeddingService --> Sparse[Sparse token-frequency vector]
     Dense --> Retrieve[RetrieveChunksUseCase]
     Sparse --> Retrieve
-    Retrieve --> Qdrant[Qdrant hybrid query]
+    Retrieve --> Qdrant[Qdrant hybrid ]
     Qdrant --> DensePrefetch[Dense prefetch]
     Qdrant --> SparsePrefetch[Sparse prefetch with IDF]
     DensePrefetch --> RRF[Reciprocal rank fusion]
@@ -65,10 +65,10 @@ LLM coordination needed for the minimum end-to-end RAG response.
 sequenceDiagram
     autonumber
     actor User as User/client
-    participant API as FastAPI /v1/query
+    participant API as FastAPI /v1/
     participant AnswerController as AnswerQuestionController
     participant RetrievalController as RetrievalController
-    participant EmbedUC as QueryEmbeddingUseCase
+    participant EmbedUC as EmbeddingUseCase
     participant Embed as Embedding service
     participant RetrieveUC as RetrieveChunksUseCase
     participant Qdrant as Qdrant
@@ -81,8 +81,8 @@ sequenceDiagram
     User->>API: POST question
     API->>AnswerController: Answer question
     AnswerController->>RetrievalController: Retrieve ranked context
-    RetrievalController->>EmbedUC: Embed query
-    EmbedUC->>Embed: Vectorize query
+    RetrievalController->>EmbedUC: Embed 
+    EmbedUC->>Embed: Vectorize 
     Embed-->>EmbedUC: Dense + sparse vectors
     EmbedUC-->>RetrievalController: Query embedding
     RetrievalController->>RetrieveUC: Retrieve candidates
